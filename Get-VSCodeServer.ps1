@@ -9,10 +9,10 @@ function Get-VSCodeServer {
 
     .NOTES
     Name         - Get-VSCodeServer
-    Version      - 1.0
+    Version      - 1.1
     Author       - Darren Hollinrake
     Date Created - 2022-08-30
-    Date Updated - 2024-09-22
+    Date Updated - 2026-03-16
 
     .PARAMETER CommitId
     The VSCode Commit ID for the version of vscode-server that should be downloaded.
@@ -46,30 +46,36 @@ function Get-VSCodeServer {
         [string]$OutPath
     )
     
-    $Url = "https://update.code.visualstudio.com/commit:$CommitId/server-linux-x64/stable"
-    
-    $VersionPath = Join-Path -Path $OutPath -ChildPath $Version
-    if (! (Test-Path $VersionPath)) {
-        New-Item -ItemType Directory -Path $VersionPath -Force | Out-Null
-    }
-    
-    $OutFile = Join-Path -Path $VersionPath -ChildPath "vscode-server-linux-x64.tar.gz"
-    
-    if (! (Test-Path $OutFile)) {
-        Write-Output "Downloading v$Version"
-        try {
-            Invoke-WebRequest -Uri $Url -OutFile $OutFile
-            New-Item -Path $VersionPath -Name "$CommitId.txt" -ItemType File | Out-Null
+    begin {}
+
+    process {
+        $Url = "https://update.code.visualstudio.com/commit:$CommitId/server-linux-x64/stable"
+
+        $VersionPath = Join-Path -Path $OutPath -ChildPath $Version
+        if (! (Test-Path $VersionPath)) {
+            New-Item -ItemType Directory -Path $VersionPath -Force | Out-Null
         }
-        catch {
-            Write-Warning "There was an issue downloading one of the files. Exiting..."
-            Remove-Item -Path $VersionPath -Recurse
-            throw
+
+        $OutFile = Join-Path -Path $VersionPath -ChildPath "vscode-server-linux-x64.tar.gz"
+
+        if (! (Test-Path $OutFile)) {
+            Write-Output "Downloading v$Version"
+            try {
+                Invoke-WebRequest -Uri $Url -OutFile $OutFile
+                New-Item -Path $VersionPath -Name "$CommitId.txt" -ItemType File | Out-Null
+            }
+            catch {
+                Write-Warning "There was an issue downloading one of the files. Exiting..."
+                Remove-Item -Path $VersionPath -Recurse
+                throw
+            }
+        }
+        else {
+            Write-Output "Downloading v$Version - Already exists - Skipping..."
         }
     }
-    else {
-        Write-Output "Downloading v$Version - Already exists - Skipping..."
-    }
+
+    end {}
         
 }
 # UNCLASSIFIED
