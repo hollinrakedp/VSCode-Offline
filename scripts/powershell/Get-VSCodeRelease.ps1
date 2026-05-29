@@ -11,9 +11,11 @@ function Get-VSCodeRelease {
     Date Updated:
 
     .DESCRIPTION
-    This function will retrieve the latest release(s) of VS Code and the corresponding commit ID.
+    This function retrieves the latest release(s) of VS Code and the corresponding VS Code Server
+    build commit ID.
 
-    The function retrieves information from the GitHub API, which has rate limits. For unauthenticated users, the limit is 60 requests per hour. Each call to the function will call the API once to collect the release information and once for each release requested to retrieve the commit ID.
+    Release versions are retrieved from the GitHub API, which has rate limits. For unauthenticated
+    users, the limit is 60 requests per hour.
 
     .PARAMETER Count
     Defines the number of releases to return. Must be between 1 and 30.
@@ -89,29 +91,23 @@ function Get-VSCodeRelease {
         
         $Versions = $Releases.tag_name
 
-        # Retrieve the commit ID for each version
+        # Retrieve the server build commit ID for each version
         foreach ($Version in $Versions) {
-            $VersionUri = "https://api.github.com/repos/microsoft/vscode/git/ref/tags/$Version"
-            if ($Token) {
-                $VersionParams = @{
-                    Headers = @{"Authorization" = "Bearer $Token" }
-                    Uri     = "$VersionUri"
-                }
-            }
-            else {
-                $VersionParams = @{
-                    Uri = "$VersionUri"
-                }
-            }
-
+            $ServerVersionUri = "https://update.code.visualstudio.com/$Version/server-linux-x64/stable"
             try {
-                $TagInfo = Invoke-RestMethod @VersionParams
+                $ServerResponse = Invoke-WebRequest -Uri $ServerVersionUri -Method Head
             }
             catch {
-                Write-Error "Failed to retrieve the release commit ID: $_" -ErrorAction Stop
+                Write-Error "Failed to retrieve VS Code Server metadata for version '$Version': $_" -ErrorAction Stop
             }
-            
-            $CommitId = $TagInfo.object.sha
+
+            $ResolvedUri = $ServerResponse.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+            $CommitId = [regex]::Match($ResolvedUri, '/stable/(?<commit>[a-f0-9]{40})/').Groups['commit'].Value
+
+            if (-not $CommitId) {
+                Write-Error "Unable to parse commit ID from server metadata URL for version '$Version'. URL: $ResolvedUri" -ErrorAction Stop
+            }
+
             [PSCustomObject]@{
                 Version  = $Version
                 CommitId = $CommitId
