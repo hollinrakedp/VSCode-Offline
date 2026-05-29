@@ -9,10 +9,10 @@ function Get-VSCodeServer {
 
     .NOTES
     Name         - Get-VSCodeServer
-    Version      - 1.1
+    Version      - 1.2
     Author       - Darren Hollinrake
     Date Created - 2022-08-30
-    Date Updated - 2026-03-16
+    Date Updated - 2026-05-29
 
     .PARAMETER CommitId
     The VSCode Commit ID for the version of vscode-server that should be downloaded.
@@ -61,13 +61,24 @@ function Get-VSCodeServer {
         if (! (Test-Path $OutFile)) {
             Write-Output "Downloading v$Version"
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $OutFile
+                Invoke-WebRequest -Uri $Url -OutFile $OutFile -ErrorAction Stop
                 New-Item -Path $VersionPath -Name "$CommitId.txt" -ItemType File | Out-Null
             }
             catch {
-                Write-Warning "There was an issue downloading one of the files. Exiting..."
-                Remove-Item -Path $VersionPath -Recurse
-                throw
+                Write-Warning "Failed to download v$Version ($CommitId): $($_.Exception.Message). Continuing to next version..."
+
+                if (Test-Path $OutFile) {
+                    Remove-Item -Path $OutFile -Force -ErrorAction SilentlyContinue
+                }
+
+                if (Test-Path $VersionPath) {
+                    $VersionPathItems = Get-ChildItem -Path $VersionPath -Force -ErrorAction SilentlyContinue
+                    if (-not $VersionPathItems) {
+                        Remove-Item -Path $VersionPath -Force -ErrorAction SilentlyContinue
+                    }
+                }
+
+                return
             }
         }
         else {
